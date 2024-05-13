@@ -1,6 +1,7 @@
 import gymnasium as gym
 from gymnasium import spaces
 import pandas as pd
+import xarray as xr
 import numpy as np
 import datetime
 import glob
@@ -77,7 +78,8 @@ class TradingEnv(gym.Env):
     """
     metadata = {'render_modes': ['logs']}
     def __init__(self,
-                df : pd.DataFrame,
+                # df : pd.DataFrame,
+                ds : xr.Dataset,
                 positions : list = [0, 1],
                 dynamic_feature_functions = [dynamic_feature_last_position_taken, dynamic_feature_real_position],
                 reward_function = basic_reward_function,
@@ -107,7 +109,8 @@ class TradingEnv(gym.Env):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.max_episode_duration = max_episode_duration
         self.render_mode = render_mode
-        self._set_df(df)
+        # self._set_df(df)
+        self._set_ds(ds)
         
         self.action_space = spaces.Discrete(len(positions))
         self.observation_space = spaces.Box(
@@ -125,27 +128,32 @@ class TradingEnv(gym.Env):
         self.log_metrics = []
 
 
-    def _set_df(self, df):
-        df = df.copy()
-        self._features_columns = [col for col in df.columns if "feature" in col]
-        self._info_columns = list(set(list(df.columns) + ["close"]) - set(self._features_columns))
+    def _set_ds(self, ds):
+        # Extract features, info, and price from xarray Dataset
+        ds = ds.copy()
+        self._features_columns = [var for var in ds.data_vars if "feature" in var]
+        self._info_columns = list(set(ds.data_vars) - set(self._features_columns) + ["close"])
         self._nb_features = len(self._features_columns)
         self._nb_static_features = self._nb_features
 
-        for i  in range(len(self.dynamic_feature_functions)):
-            df[f"dynamic_feature__{i}"] = 0
+        for i in range(len(self.dynamic_feature_functions)):
+            ds[f"dynamic_feature__{i}"] = 0
             self._features_columns.append(f"dynamic_feature__{i}")
             self._nb_features += 1
 
-        self.df = df
-        self._obs_array = np.array(self.df[self._features_columns], dtype= np.float32)
-        self._info_array = np.array(self.df[self._info_columns])
-        self._price_array = np.array(self.df["close"])
+        self.ds = ds
+        self._obs_array = np.array(ds[self._features_columns], dtype= np.float32)
+        self._info_array = np.array(ds[self._info_columns])
+        self._price_array = np.array(ds["close"])
 
 
     
+    # def _get_ticker(self, delta = 0):
+    #     return self.df.iloc[self._idx + delta]
     def _get_ticker(self, delta = 0):
-        return self.df.iloc[self._idx + delta]
+        return self.ds.isel(time=self._idx + delta)
+    # def _get_price(self, delta = 0):
+    #     return self._price_array[self._idx + delta]
     def _get_price(self, delta = 0):
         return self._price_array[self._idx + delta]
     
@@ -186,7 +194,7 @@ class TradingEnv(gym.Env):
         self.historical_info.set(
             idx = self._idx,
             step = self._step,
-            date = self.df.index.values[self._idx],
+            date = self.ds.index.values[self._idx],
             position_index =self.positions.index(self._position),
             position = self._position,
             real_position = self._position,
@@ -245,7 +253,7 @@ class TradingEnv(gym.Env):
 
         if portfolio_value <= 0:
             done = True
-        if self._idx >= len(self.df) - 1:
+        if self._idx >= len(self.ds) - 1:
             truncated = True
         if isinstance(self.max_episode_duration,int) and self._step >= self.max_episode_duration - 1:
             truncated = True
@@ -253,7 +261,7 @@ class TradingEnv(gym.Env):
         self.historical_info.add(
             idx = self._idx,
             step = self._step,
-            date = self.df.index.values[self._idx],
+            date = self.ds.index.values[self._idx],
             position_index =position_index,
             position = self._position,
             real_position = self._portfolio.real_position(price),
@@ -294,17 +302,17 @@ class TradingEnv(gym.Env):
             print(text)
 
     def save_for_render(self, dir = "render_logs"):
-        assert "open" in self.df and "high" in self.df and "low" in self.df and "close" in self.df, "Your DataFrame needs to contain columns : open, high, low, close to render !"
+        assert "open" in self.ds and "high" in self.ds and "low" in self.ds and "close" in self.ds, "Your DataSet needs to contain variables : open, high, low, close to render !"
         columns = list(set(self.historical_info.columns) - set([f"date_{col}" for col in self._info_columns]))
-        history_df = pd.DataFrame(
-            self.historical_info[columns], columns= columns
+        history_ds = xr.DataSet(
+            self.historical_info[columns], variables = columns
         )
-        history_df.set_index("date", inplace= True)
-        history_df.sort_index(inplace = True)
-        render_df = self.df.join(history_df, how = "inner")
+        history_ds.set_index("date", inplace= True)
+        history_ds.sort_index(inplace = True)
+        render_ds = self.ds.join(history_ds, how = "inner")
         
         if not os.path.exists(dir):os.makedirs(dir)
-        render_df.to_pickle(f"{dir}/{self.name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl")
+        render_ds.to_pickle(f"{dir}/{self.name}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl")
 
 class MultiDatasetTradingEnv(TradingEnv):
     """
@@ -366,7 +374,8 @@ class MultiDatasetTradingEnv(TradingEnv):
                 dataset_dir, 
                 *args, 
 
-                preprocess = lambda df : df,
+                # preprocess = lambda df : df,
+                preprocess = lambda ds : ds,
                 episodes_between_dataset_switch = 1,
                 **kwargs):
         self.dataset_dir = dataset_dir
@@ -386,7 +395,7 @@ class MultiDatasetTradingEnv(TradingEnv):
         self.dataset_nb_uses[random_int] += 1 # Update nb use counts
 
         self.name = Path(dataset_path).name
-        return self.preprocess(pd.read_pickle(dataset_path))
+        return self.preprocess(xr.open_dataset(dataset_path))
 
     def reset(self, seed=None):
         self._episodes_on_this_dataset += 1
