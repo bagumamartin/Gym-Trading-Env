@@ -400,7 +400,7 @@ class MultiDatasetTradingEnv(TradingEnv):
     def reset(self, seed=None):
         self._episodes_on_this_dataset += 1
         if self._episodes_on_this_dataset % self.episodes_between_dataset_switch == 0:
-            self._set_df(
+            self._set_ds(
                 self.next_dataset()
             )
         if self.verbose > 1: print(f"Selected dataset {self.name} ...")
