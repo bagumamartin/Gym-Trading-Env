@@ -2,6 +2,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import pandas as pd
 import xarray as xr
+import pickle
 import numpy as np
 import datetime
 import glob
@@ -395,7 +396,9 @@ class MultiDatasetTradingEnv(TradingEnv):
         self.dataset_nb_uses[random_int] += 1 # Update nb use counts
 
         self.name = Path(dataset_path).name
-        return self.preprocess(xr.open_dataset(dataset_path))
+        with open(dataset_path, 'rb') as file:
+            dataset = pickle.load(file)
+        return self.preprocess(dataset)
 
     def reset(self, seed=None):
         self._episodes_on_this_dataset += 1
