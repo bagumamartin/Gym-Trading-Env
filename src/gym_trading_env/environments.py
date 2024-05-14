@@ -181,7 +181,7 @@ class TradingEnv(gym.Env):
         if self.max_episode_duration != 'max':
             self._idx = np.random.randint(
                 low = self._idx, 
-                high = len(self.df) - self.max_episode_duration - self._idx
+                high = len(self.ds) - self.max_episode_duration - self._idx
             )
         
         self._portfolio  = TargetPortfolio(
@@ -190,7 +190,7 @@ class TradingEnv(gym.Env):
             price = self._get_price()
         )
         
-        self.historical_info = History(max_size= len(self.df))
+        self.historical_info = History(max_size= len(self.ds))
         self.historical_info.set(
             idx = self._idx,
             step = self._step,
