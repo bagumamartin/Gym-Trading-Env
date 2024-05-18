@@ -19,10 +19,10 @@ def basic_reward_function(history: History):
     return np.log(history["portfolio_valuation", -1] / history["portfolio_valuation", -2])
 
 def dynamic_feature_last_position_taken(history):
-    return history['position', -1]
+    return history['position', -1][0]
 
 def dynamic_feature_real_position(history):
-    return history['real_position', -1]
+    return history['real_position', -1][0]
 
 class TradingEnv(gym.Env):
     metadata = {'render_modes': ['logs']}
