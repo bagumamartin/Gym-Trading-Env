@@ -23,6 +23,28 @@ def dynamic_feature_last_position_taken(history):
 def dynamic_feature_real_position(history):
     return history['real_position', -1]
 
+def dynamic_feature_drawdown(history):
+    networth_array = history['portfolio_valuation']
+    _max_networth = networth_array[0]
+    for networth in networth_array:
+        if networth > _max_networth:
+            _max_networth = networth
+        drawdown = ( networth - _max_networth ) / _max_networth
+    return drawdown
+
+def dynamic_feature_max_drawdown(history):
+    networth_array = history['portfolio_valuation']
+    _max_networth = networth_array[0]
+    _max_drawdown = 0
+    for networth in networth_array:
+        if networth > _max_networth:
+            _max_networth = networth
+        drawdown = ( networth - _max_networth ) / _max_networth
+        if drawdown < _max_drawdown:
+            _max_drawdown = drawdown
+    return _max_drawdown
+
+
 class TradingEnv(gym.Env):
     """
     An easy trading environment for OpenAI gym. It is recommended to use it this way :
@@ -79,7 +101,7 @@ class TradingEnv(gym.Env):
     def __init__(self,
                 df : pd.DataFrame,
                 positions : list = [0, 1],
-                dynamic_feature_functions = [dynamic_feature_last_position_taken, dynamic_feature_real_position],
+                dynamic_feature_functions = [dynamic_feature_last_position_taken, dynamic_feature_real_position, dynamic_feature_drawdown, dynamic_feature_max_drawdown],
                 reward_function = basic_reward_function,
                 windows = None,
                 trading_fees = 0,
