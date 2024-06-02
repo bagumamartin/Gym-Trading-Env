@@ -309,23 +309,23 @@ class TradingEnv(gym.Env):
     def get_metrics(self):
         return self.results_metrics
     
-    # def log(self):
-    #     if self.verbose > 0:
-    #         text = ""
-    #         for key, value in self.results_metrics.items():
-    #             text += f"{key} : {value}   |   "
-    #         print(text)
+    def log(self):
+        if self.verbose > 0:
+            text = ""
+            for key, value in self.results_metrics.items():
+                text += f"{key} : {value}   |   "
+            print(text)
 
-    def log(self, i_env=0):
-        if len(self.losses) == 0:
-            mean_loss = float('nan')  # or handle this case as you see fit
-        else:
-            mean_loss = np.mean(self.losses[-10_000:])
+    # def log(self, i_env=0):
+    #     if len(self.losses) == 0:
+    #         mean_loss = float('nan')  # or handle this case as you see fit
+    #     else:
+    #         mean_loss = np.mean(self.losses[-10_000:])
         
-        text_print = f"""
-        ↳ Env {i_env} : {self.episode_count[i_env]:03} : {self.steps: 8d}   |   {self.format_time(datetime.datetime.now() - self.start_time)}   |   Epsilon : {self.get_current_epsilon()*100: 4.2f}%   |   Mean Loss (last 10k) : {mean_loss:0.4E}   |   Tot. Rewards : {np.sum(self.episode_rewards[i_env]): 8.2f}   |   Rewards (/1000 steps) : {1000 * np.sum(self.episode_rewards[i_env]) / self.episode_steps[i_env]: 8.2f}   |   Length : {self.episode_steps[i_env]: 6.0f}
-        """
-        print(text_print)
+    #     text_print = f"""
+    #     ↳ Env {i_env} : {self.episode_count[i_env]:03} : {self.steps: 8d}   |   {self.format_time(datetime.datetime.now() - self.start_time)}   |   Epsilon : {self.get_current_epsilon()*100: 4.2f}%   |   Mean Loss (last 10k) : {mean_loss:0.4E}   |   Tot. Rewards : {np.sum(self.episode_rewards[i_env]): 8.2f}   |   Rewards (/1000 steps) : {1000 * np.sum(self.episode_rewards[i_env]) / self.episode_steps[i_env]: 8.2f}   |   Length : {self.episode_steps[i_env]: 6.0f}
+    #     """
+    #     print(text_print)
 
     def save_for_render(self, dir = "render_logs"):
         assert "open" in self.df and "high" in self.df and "low" in self.df and "close" in self.df, "Your DataFrame needs to contain columns : open, high, low, close to render !"
